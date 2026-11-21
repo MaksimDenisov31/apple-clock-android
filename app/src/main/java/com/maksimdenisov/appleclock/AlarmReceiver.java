@@ -13,8 +13,8 @@ public class AlarmReceiver extends BroadcastReceiver {
   if(Store.ringing(s)) {
    if("clock.FIRE".equals(action))c.startForegroundService(new Intent(c,RingService.class));
    else if(Store.exact(c)) {
-    // Android 15 forbids media-playback FGS launch directly from BOOT_COMPLETED.
-    // Deliver recovered overdue signals through a fresh exact alarm instead.
+    // Deliver recovered signals through the same exact-alarm path as normal alerts.
+    // RingService selects the alarm-specific foreground type on Android 14+.
     android.app.AlarmManager am=(android.app.AlarmManager)c.getSystemService(Context.ALARM_SERVICE);
     android.app.PendingIntent show=android.app.PendingIntent.getActivity(c,0,new Intent(c,MainActivity.class),android.app.PendingIntent.FLAG_UPDATE_CURRENT|android.app.PendingIntent.FLAG_IMMUTABLE);
     am.setAlarmClock(new android.app.AlarmManager.AlarmClockInfo(System.currentTimeMillis()+1500,show),Store.pending(c,0));

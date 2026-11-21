@@ -1,6 +1,7 @@
 package com.maksimdenisov.appleclock;
 import android.app.*;
 import android.content.*;
+import android.content.pm.ServiceInfo;
 import android.media.*;
 import android.os.*;
 import org.json.*;
@@ -17,7 +18,12 @@ public class RingService extends Service {
   PendingIntent pi=PendingIntent.getActivity(this,1,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
   String title="Время вышло";for(JSONObject o:Store.items(s))if(o.optBoolean("ringing")){title=o.optString("name");break;}
   Notification n=new Notification.Builder(this,"alarm-signal").setSmallIcon(com.maksimdenisov.appleclock.R.drawable.app_icon).setContentTitle(title).setContentText("Нажмите, чтобы остановить сигнал").setCategory(Notification.CATEGORY_ALARM).setVisibility(Notification.VISIBILITY_PUBLIC).setOngoing(true).setContentIntent(pi).setFullScreenIntent(pi,true).build();
-  startForeground(100,n);
+  // On Android 14+ exact-alarm apps use the dedicated alarm-service exemption.
+  // A mediaPlayback service is rejected during Android 15's boot allowlist window,
+  // even when a fresh alarm PendingIntent delivers the recovered signal.
+  if(Build.VERSION.SDK_INT>=34)startForeground(100,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED);
+  else if(Build.VERSION.SDK_INT>=29)startForeground(100,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+  else startForeground(100,n);
   if(lock==null){lock=((PowerManager)getSystemService(POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"AppleClock:signal");lock.acquire(10*60*1000L);}
   if(player==null && s.optBoolean("sound",true) && s.optInt("volume",100)>0) {
    try {
