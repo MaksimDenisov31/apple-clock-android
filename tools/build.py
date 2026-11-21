@@ -29,7 +29,7 @@ if not config.exists():
 password=json.loads(config.read_text())['password'];env=dict(os.environ,APPLE_CLOCK_KEY_PASSWORD=password)
 if not key.exists():
  run(jdk/'bin'/('keytool'+exe),'-genkeypair','-keystore',key,'-storepass:env','APPLE_CLOCK_KEY_PASSWORD','-keypass:env','APPLE_CLOCK_KEY_PASSWORD','-alias','appleclock','-keyalg','RSA','-keysize','3072','-validity','10000','-dname','CN=Apple Clock Android, O=MaksimDenisov31',env=env)
-apk=dist/'AppleClock-Android-1.0.0.apk'
+apk=dist/'AppleClock-Android-1.0.1.apk'
 signer=tool('aapt2').parent/'lib/apksigner.jar'
 run(jdk/'bin'/('java'+exe),'-jar',signer,'sign','--ks',key,'--ks-pass','env:APPLE_CLOCK_KEY_PASSWORD','--key-pass','env:APPLE_CLOCK_KEY_PASSWORD','--out',apk,build/'aligned.apk',env=env)
 run(jdk/'bin'/('java'+exe),'-jar',signer,'verify','--verbose',apk)

@@ -4,7 +4,7 @@
 
 ## Установка на Samsung
 
-1. Скачайте [AppleClock-Android-1.0.0.apk](https://github.com/MaksimDenisov31/apple-clock-android/releases/download/v1.0.0/AppleClock-Android-1.0.0.apk) на телефон (Android 8.0 или новее).
+1. Скачайте [AppleClock-Android-1.0.1.apk](https://github.com/MaksimDenisov31/apple-clock-android/releases/download/v1.0.1/AppleClock-Android-1.0.1.apk) на телефон (Android 8.0 или новее).
 2. Откройте файл через «Мои файлы» и разрешите установку из этого источника. Если установка запрещена «Автоблокировкой» Samsung, разрешите её в настройках телефона; после установки защиту можно включить обратно.
 3. Запустите Apple Clock и разрешите уведомления. В разделе «Ещё» проверьте доступ к точным сигналам и показу на экране блокировки. На Android 12 может понадобиться отдельное разрешение точных сигналов.
 4. При ограничениях Samsung добавьте часы в «Обслуживание устройства → Батарея → Ограничения в фоновом режиме → Никогда не спящие приложения». Названия пунктов зависят от версии One UI.
@@ -44,7 +44,7 @@ javac -encoding UTF-8 -d build/logic app/src/main/java/com/maksimdenisov/applecl
 java -cp build/logic LogicTest
 ```
 
-Версия 1.0.0 — первый Android-выпуск. [Проверки и ограничения](docs/verification.md). [Источник и лицензия мелодии](docs/SOUND-CREDITS.md).
+Версия 1.0.1: подписи нижнего меню выровнены по центру под значками; новые таймеры появляются первой карточкой под быстрыми интервалами, в том числе при запуске кнопками минут. [Проверки и ограничения](docs/verification.md). [Источник и лицензия мелодии](docs/SOUND-CREDITS.md).
 
 Основания реализации Android: [точные сигналы](https://developer.android.com/develop/background-work/services/alarms), [разрешение уведомлений](https://developer.android.com/develop/ui/views/notifications/notification-permission), [полноэкранные уведомления](https://developer.android.com/about/versions/14/behavior-changes-14#secure-fsi-notifications).
 

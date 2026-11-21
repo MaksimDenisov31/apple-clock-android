@@ -17,6 +17,11 @@ final class Store {
  }
  static void save(Context c,JSONObject s) {if(!c.getSharedPreferences("clock",0).edit().putString("state",s.toString()).commit())throw new IllegalStateException("Не удалось сохранить часы");}
  static int id(JSONObject s) {int id=s.optInt("nextId",12); put(s,"nextId",id+1); return id;}
+ static void addTimer(JSONObject s,JSONObject timer) {
+  JSONArray previous=s.optJSONArray("timers"),ordered=new JSONArray().put(timer);
+  for(int i=0;i<previous.length();i++)ordered.put(previous.optJSONObject(i));
+  put(s,"timers",ordered);
+ }
  static List<JSONObject> items(JSONObject s) {
   List<JSONObject> out=new ArrayList<>(); out.add(s.optJSONObject("focus"));
   for(String k:new String[]{"timers","alarms"}) {JSONArray a=s.optJSONArray(k);for(int i=0;i<a.length();i++)out.add(a.optJSONObject(i));} return out;
