@@ -1,10 +1,14 @@
 # Apple Clock для Android
 
-Самостоятельная Android-версия [Apple Clock для Windows](https://github.com/MaksimDenisov31/apple-clock-apple-design). Интерфейс на русском языке: спокойные поверхности, закруглённые карточки, синий акцент, оранжевые плавные кольца, светлая и тёмная темы. Навигация адаптирована под сенсорный экран; настольные кнопки управления окном заменены штатным управлением Android.
+Самостоятельная Android-версия [Apple Clock для Windows](https://github.com/MaksimDenisov31/apple-clock-apple-design). Интерфейс на русском языке по мотивам приложения «Часы» на iPhone: чёрная тёмная тема, светлая тема, оранжевые акценты, крупные цифры, круглые кнопки и плавающая нижняя панель. Выбор темы и существующие данные сохраняются при обновлении.
+
+Внизу доступны мировые часы, будильники, секундомер и таймеры. Фокусировка и настройки находятся в «Ещё». Кнопка «+» вверху добавляет таймер, будильник или город. Нажатие на время будильника открывает редактор; «Править» показывает действия удаления. В редакторах часы, минуты и секунды выбираются прокруткой; ручной ввод и точная настройка кнопками сохранены.
+
+Ориентиры оформления: [таймеры iPhone](https://support.apple.com/guide/iphone/set-timers-iph8241d6b2a/ios) и [обновлённый дизайн Apple](https://www.apple.com/newsroom/2025/06/apple-introduces-a-delightful-and-elegant-new-software-design/). Панель навигации использует лёгкий полупрозрачный градиент без постоянного размытия содержимого экрана.
 
 ## Установка на Samsung
 
-1. Скачайте [AppleClock-Android-1.0.1.apk](https://github.com/MaksimDenisov31/apple-clock-android/releases/download/v1.0.1/AppleClock-Android-1.0.1.apk) на телефон (Android 8.0 или новее).
+1. Скачайте [AppleClock-Android-1.1.0.apk](https://github.com/MaksimDenisov31/apple-clock-android/releases/download/v1.1.0/AppleClock-Android-1.1.0.apk) на телефон (Android 8.0 или новее).
 2. Откройте файл через «Мои файлы» и разрешите установку из этого источника. Если установка запрещена «Автоблокировкой» Samsung, разрешите её в настройках телефона; после установки защиту можно включить обратно.
 3. Запустите Apple Clock и разрешите уведомления. В разделе «Ещё» проверьте доступ к точным сигналам и показу на экране блокировки. На Android 12 может понадобиться отдельное разрешение точных сигналов.
 4. При ограничениях Samsung добавьте часы в «Обслуживание устройства → Батарея → Ограничения в фоновом режиме → Никогда не спящие приложения». Названия пунктов зависят от версии One UI.
@@ -40,11 +44,12 @@ python tools/build.py --sdk C:/Android/Sdk --jdk C:/Java/jdk-17
 Проверка логики:
 
 ```powershell
-javac -encoding UTF-8 -d build/logic app/src/main/java/com/maksimdenisov/appleclock/ClockLogic.java tools/LogicTest.java
+javac -encoding UTF-8 -d build/logic app/src/main/java/com/maksimdenisov/appleclock/ClockLogic.java app/src/main/java/com/maksimdenisov/appleclock/ScheduleCache.java tools/LogicTest.java tools/SchedulingTest.java
 java -cp build/logic LogicTest
+java -cp build/logic com.maksimdenisov.appleclock.SchedulingTest
 ```
 
-Версия 1.0.1: подписи нижнего меню выровнены по центру под значками; новые таймеры появляются первой карточкой под быстрыми интервалами, в том числе при запуске кнопками минут. [Проверки и ограничения](docs/verification.md). [Источник и лицензия мелодии](docs/SOUND-CREDITS.md).
+Версия 1.1.0: оформление в стиле iPhone, редакторы времени с прокруткой, переключатели будильников и ползунок громкости. Новые таймеры появляются сверху; главный таймер имеет плавное кольцо, остальные отображаются компактными строками. Снижено число фоновых операций интерфейса, повторных регистраций сигналов и записей настроек. [Проверки и ограничения](docs/verification.md). [Источник и лицензия мелодии](docs/SOUND-CREDITS.md).
 
 Основания реализации Android: [точные сигналы](https://developer.android.com/develop/background-work/services/alarms), [разрешение уведомлений](https://developer.android.com/develop/ui/views/notifications/notification-permission), [полноэкранные уведомления](https://developer.android.com/about/versions/14/behavior-changes-14#secure-fsi-notifications).
 

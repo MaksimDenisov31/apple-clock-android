@@ -5,6 +5,8 @@ import org.json.*;
 public class AlarmReceiver extends BroadcastReceiver {
  @Override public void onReceive(Context c,Intent i) {
   JSONObject s=Store.load(c);String action=i.getAction();
+  // A delivered one-shot PendingIntent has been consumed by AlarmManager.
+  if("clock.FIRE".equals(action))Store.forgetSchedule(i.getIntExtra("id",0));else Store.invalidateSchedule();
   if(Intent.ACTION_TIMEZONE_CHANGED.equals(action)||Intent.ACTION_TIME_CHANGED.equals(action))
    for(JSONObject o:Store.items(s))if(o.optBoolean("alarm")&&o.optBoolean("enabled"))Store.next(o);
   Store.tick(c,s);Store.changed(c,s);

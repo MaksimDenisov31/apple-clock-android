@@ -1,7 +1,10 @@
 <resources>
  <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
   <item name="android:fontFamily">sans</item><item name="android:windowActionModeOverlay">true</item>
-  <item name="android:colorAccent">#007AFF</item><item name="android:windowLightStatusBar">true</item><item name="android:windowNoTitle">true</item>
+  <item name="android:colorAccent">#FF9F0A</item><item name="android:windowLightStatusBar">true</item><item name="android:windowNoTitle">true</item>
   <item name="android:windowBackground">#F5F5F7</item><item name="android:windowLayoutInDisplayCutoutMode">default</item>
+ </style>
+ <style name="ClockSlider" parent="android:style/Widget.Material.SeekBar">
+  <item name="android:minHeight">4dp</item><item name="android:maxHeight">4dp</item>
  </style>
 </resources>

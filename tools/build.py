@@ -1,6 +1,6 @@
 """Build a signed APK using the official Android SDK and JDK (no third-party dependencies)."""
 from pathlib import Path
-import os, subprocess, shutil, json, secrets, zipfile, hashlib, argparse
+import os, subprocess, shutil, json, secrets, zipfile, hashlib, argparse, xml.etree.ElementTree as ET
 
 ROOT=Path(__file__).resolve().parents[1]
 p=argparse.ArgumentParser();p.add_argument('--sdk',default=os.environ.get('ANDROID_HOME',str(ROOT/'.tools/sdk')));p.add_argument('--jdk',default=os.environ.get('JAVA_HOME',r'C:\Program Files\Microsoft\jdk-11.0.12.7-hotspot'));args=p.parse_args()
@@ -10,7 +10,10 @@ def run(*cmd,**kw):
 def tool(name):
  matches=list(sdk.glob('**/'+name+exe));assert matches, f'Missing SDK tool: {name}';return matches[-1]
 build=ROOT/'build';build.mkdir(exist_ok=True);dist=ROOT/'dist';dist.mkdir(exist_ok=True)
-classes=build/'classes';classes.mkdir(exist_ok=True)
+classes=build/'classes'
+assert classes.resolve().is_relative_to(build.resolve()) and classes.name=='classes'
+if classes.exists():shutil.rmtree(classes)
+classes.mkdir()
 jar=list(sdk.glob('**/android.jar'))[-1];src=ROOT/'app/src/main'
 run(tool('aapt2'),'compile','--dir',src/'res','-o',build/'resources.zip')
 run(tool('aapt2'),'link','-o',build/'unsigned.apk','-I',jar,'--manifest',src/'AndroidManifest.xml','--java',build/'generated',build/'resources.zip')
@@ -29,7 +32,8 @@ if not config.exists():
 password=json.loads(config.read_text())['password'];env=dict(os.environ,APPLE_CLOCK_KEY_PASSWORD=password)
 if not key.exists():
  run(jdk/'bin'/('keytool'+exe),'-genkeypair','-keystore',key,'-storepass:env','APPLE_CLOCK_KEY_PASSWORD','-keypass:env','APPLE_CLOCK_KEY_PASSWORD','-alias','appleclock','-keyalg','RSA','-keysize','3072','-validity','10000','-dname','CN=Apple Clock Android, O=MaksimDenisov31',env=env)
-apk=dist/'AppleClock-Android-1.0.1.apk'
+version=ET.parse(src/'AndroidManifest.xml').getroot().attrib['{http://schemas.android.com/apk/res/android}versionName']
+apk=dist/('AppleClock-Android-'+version+'.apk')
 signer=tool('aapt2').parent/'lib/apksigner.jar'
 run(jdk/'bin'/('java'+exe),'-jar',signer,'sign','--ks',key,'--ks-pass','env:APPLE_CLOCK_KEY_PASSWORD','--key-pass','env:APPLE_CLOCK_KEY_PASSWORD','--out',apk,build/'aligned.apk',env=env)
 run(jdk/'bin'/('java'+exe),'-jar',signer,'verify','--verbose',apk)

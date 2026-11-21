@@ -7,15 +7,17 @@ import org.json.*;
 import java.util.*;
 
 final class Store {
+ private static final ScheduleCache scheduled=new ScheduleCache();
  static JSONObject obj(Object... pairs) {JSONObject o=new JSONObject(); for(int i=0;i<pairs.length;i+=2) put(o,(String)pairs[i],pairs[i+1]); return o;}
  static void put(JSONObject o,String k,Object v) {try{o.put(k,v);}catch(JSONException e){throw new IllegalStateException(e);}}
  static JSONObject timer(int id,String name,long duration) {return obj("id",id,"name",name,"duration",duration,"remaining",duration,"running",false,"ringing",false);}
  static JSONObject load(Context c) {
   String raw=c.getSharedPreferences("clock",0).getString("state",null);
   try {if(raw!=null)return new JSONObject(raw);}catch(JSONException e){throw new IllegalStateException("Не удалось прочитать сохранённые часы",e);}
-  return obj("nextId",12,"timers",new JSONArray().put(timer(10,"Чай",180000)).put(timer(11,"Обратный отсчёт",300000)),"alarms",new JSONArray(),"cities",new JSONArray().put(0).put(1).put(3),"focus",timer(1,"Фокусировка",1500000),"work",25,"rest",5,"volume",100,"sound",true,"step",10,"laps",new JSONArray());
+  return obj("dark",true,"nextId",12,"timers",new JSONArray().put(timer(10,"Чай",180000)).put(timer(11,"Обратный отсчёт",300000)),"alarms",new JSONArray(),"cities",new JSONArray().put(0).put(1).put(3),"focus",timer(1,"Фокусировка",1500000),"work",25,"rest",5,"volume",100,"sound",true,"step",10,"laps",new JSONArray());
  }
  static void save(Context c,JSONObject s) {if(!c.getSharedPreferences("clock",0).edit().putString("state",s.toString()).commit())throw new IllegalStateException("Не удалось сохранить часы");}
+ static void saveUi(Context c,JSONObject s) {c.getSharedPreferences("clock",0).edit().putString("state",s.toString()).apply();}
  static int id(JSONObject s) {int id=s.optInt("nextId",12); put(s,"nextId",id+1); return id;}
  static void addTimer(JSONObject s,JSONObject timer) {
   JSONArray previous=s.optJSONArray("timers"),ordered=new JSONArray().put(timer);
@@ -48,15 +50,21 @@ final class Store {
  static boolean ringing(JSONObject s) {for(JSONObject o:items(s))if(o.optBoolean("ringing"))return true;return false;}
  static PendingIntent pending(Context c,int id) {return PendingIntent.getBroadcast(c,id,new Intent(c,AlarmReceiver.class).setAction("clock.FIRE").putExtra("id",id),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
  static boolean exact(Context c) {return Build.VERSION.SDK_INT<31 || ((AlarmManager)c.getSystemService(Context.ALARM_SERVICE)).canScheduleExactAlarms();}
+ static void invalidateSchedule(){scheduled.clear();}
+ static void forgetSchedule(int id){scheduled.forget(id);}
  static void schedule(Context c,JSONObject s) {
   AlarmManager am=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);
+  boolean allowed=exact(c);PendingIntent show=null;
   for(JSONObject o:items(s)) {
-   PendingIntent p=pending(c,o.optInt("id")); am.cancel(p);
    boolean active=o.optBoolean("alarm")?o.optBoolean("enabled"):o.optBoolean("running");
-   if(active && exact(c)) {
-    PendingIntent show=PendingIntent.getActivity(c,0,new Intent(c,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-    am.setAlarmClock(new AlarmManager.AlarmClockInfo(Math.max(System.currentTimeMillis()+50,o.optLong("end")),show),p);
+   int id=o.optInt("id");long end=active&&allowed?o.optLong("end"):0;
+   if(!scheduled.needs(id,end))continue;
+   PendingIntent p=pending(c,id);am.cancel(p);
+   if(active&&allowed){
+    if(show==null)show=PendingIntent.getActivity(c,0,new Intent(c,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+    am.setAlarmClock(new AlarmManager.AlarmClockInfo(Math.max(System.currentTimeMillis()+50,end),show),p);
    }
+   scheduled.recorded(id,end);
   }
  }
  static void changed(Context c,JSONObject s) {save(c,s);schedule(c,s);}

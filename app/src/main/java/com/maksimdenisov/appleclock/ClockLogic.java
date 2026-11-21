@@ -19,7 +19,9 @@ public final class ClockLogic {
   return m>59||s>59||h*3600+m*60+s==0 ? -1 : (h*3600L+m*60+s)*1000;
  }
  public static String duration(long ms) {
-  long s=Math.max(0,(ms+999)/1000); return String.format(Locale.ROOT,"%02d:%02d:%02d",s/3600,s/60%60,s%60);
+  long s=Math.max(0,(ms+999)/1000); return two(s/3600)+":"+two(s/60%60)+":"+two(s%60);
  }
+ public static String two(long n){return n<10?"0"+n:Long.toString(n);}
+ public static String stopwatch(long ms){long s=Math.max(0,ms);return two(s/3600000)+":"+two(s/60000%60)+":"+two(s/1000%60)+"."+two(s/10%100);}
  public static long remaining(boolean running,long end,long remaining,long now) {return Math.max(0,running?end-now:remaining);}
 }
