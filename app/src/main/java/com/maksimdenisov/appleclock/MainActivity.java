@@ -13,19 +13,26 @@ import java.text.*;
 import java.util.*;
 
 public class MainActivity extends Activity {
- JSONObject state;Ui u;LinearLayout root,body;ScrollView scroll;int page,scrollPage;boolean visible,editing,scrollTop,draftDirty,volumeDirty;Handler handler=new Handler();ArrayList<Runnable> refresh=new ArrayList<>();
+ JSONObject state;Ui u;LinearLayout root,body,timerList;ScrollView scroll;int page,scrollPage;boolean visible,editing,scrollTop,draftDirty,volumeDirty;Handler handler=new Handler();ArrayList<Runnable> refresh=new ArrayList<>();
  static final String[] TITLES={"Таймеры","Будильники","Секундомер","Мировые часы","Фокусировка","Настройки"};
  static final String[] SUB={"Маленькие паузы. Большие планы.","Начните день в своём ритме.","Каждое мгновение имеет значение.","Один момент. Разные города.","Одно дело. Всё внимание.","Ваши часы — ваши привычки."};
  static final String[] CITIES={"Москва","Лондон","Нью-Йорк","Токио","Париж","Дубай","Лос-Анджелес","Сидней","Пекин","Берлин","Екатеринбург","Новосибирск","Владивосток","Калининград","Стамбул","Дели"};
  static final String[] ZONES={"Europe/Moscow","Europe/London","America/New_York","Asia/Tokyo","Europe/Paris","Asia/Dubai","America/Los_Angeles","Australia/Sydney","Asia/Shanghai","Europe/Berlin","Asia/Yekaterinburg","Asia/Novosibirsk","Asia/Vladivostok","Europe/Kaliningrad","Europe/Istanbul","Asia/Kolkata"};
  final Runnable saveDraft=()->flushDraft();
+ SharedPreferences observed;
+ final SharedPreferences.OnSharedPreferenceChangeListener externalState=(prefs,key)->{
+  if(!"state".equals(key)||!visible||root==null)return;
+  String raw=prefs.getString("state","");if(raw.equals(state.toString()))return;
+  JSONObject latest=Store.load(this);if(draftDirty)Store.put(latest,"task",state.optString("task"));if(volumeDirty)Store.put(latest,"volume",state.optInt("volume",100));state=latest;redraw();
+ };
  void flushDraft(){if(!draftDirty)return;JSONObject latest=Store.load(this);Store.put(latest,"task",state.optString("task"));Store.saveUi(this,latest);draftDirty=false;}
- final Runnable ticker=new Runnable(){public void run(){if(!visible)return;if(Store.tick(MainActivity.this,state)){if(Store.ringing(state))startForegroundService(new Intent(MainActivity.this,RingService.class));build();}for(int i=0;i<refresh.size();i++)refresh.get(i).run();handler.postDelayed(this,1000-System.currentTimeMillis()%1000);}};
+ final Runnable ticker=new Runnable(){public void run(){if(!visible)return;if(Store.tick(MainActivity.this,state)){if(Store.ringing(state))startForegroundService(new Intent(MainActivity.this,RingService.class));redraw();}for(int i=0;i<refresh.size();i++)refresh.get(i).run();handler.postDelayed(this,1000-System.currentTimeMillis()%1000);}};
  @Override public void onCreate(Bundle b){super.onCreate(b);state=Store.load(this);page=b==null?state.optInt("page"):b.getInt("page");if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},7);}
  @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);b.putInt("page",page);}
- @Override protected void onResume(){super.onResume();state=Store.load(this);visible=true;Store.schedule(this,state);if(Store.ringing(state))startForegroundService(new Intent(this,RingService.class));build();handler.removeCallbacks(ticker);handler.post(ticker);}
- @Override protected void onPause(){visible=false;handler.removeCallbacks(ticker);handler.removeCallbacks(saveDraft);flushDraft();flushVolume();super.onPause();}
- void save(){Store.changed(this,state);}void change(){save();build();}
+ @Override protected void onResume(){super.onResume();state=Store.load(this);visible=true;observed=getSharedPreferences("clock",0);observed.registerOnSharedPreferenceChangeListener(externalState);RingService.ensureChannel(this);Store.schedule(this,state);if(Store.ringing(state))startForegroundService(new Intent(this,RingService.class));build();handler.removeCallbacks(ticker);handler.post(ticker);root.post(()->offerLockScreenSetup());}
+ @Override protected void onPause(){visible=false;if(observed!=null)observed.unregisterOnSharedPreferenceChangeListener(externalState);handler.removeCallbacks(ticker);handler.removeCallbacks(saveDraft);flushDraft();flushVolume();super.onPause();}
+ void save(){Store.changed(this,state);}void change(){save();redraw();}
+ void redraw(){if(page==0&&timerList!=null)renderTimers();else build();}
  void build(){
   int previousY=scroll!=null&&scrollPage==page&&!scrollTop?scroll.getScrollY():0;scrollTop=false;
   u=new Ui(this,state.optBoolean("dark"));refresh.clear();root=u.col();root.setBackgroundColor(u.bg);
@@ -51,28 +58,41 @@ public class MainActivity extends Activity {
  }
  void navigate(int target){page=target;editing=false;Store.put(state,"page",page);Store.saveUi(this,state);build();}
  void more(){LinearLayout c=u.col();Dialog d=u.dialog("Ещё",c);c.addView(u.button("Фокусировка",false,()->{d.dismiss();navigate(4);}));u.gap(c,10);c.addView(u.button("Настройки",false,()->{d.dismiss();navigate(5);}));u.gap(c,10);c.addView(u.link("Отмена",d::dismiss));d.show();size(d);}
+ void offerLockScreenSetup(){
+  if(!visible||isFinishing()||LockScreenAccess.issue(this)==null||!getSystemService(NotificationManager.class).areNotificationsEnabled())return;
+  SharedPreferences guide=getSharedPreferences("interface",0);if(guide.getBoolean("lockScreen113",false))return;guide.edit().putBoolean("lockScreen113",true).apply();
+  LinearLayout c=u.col();c.addView(u.text(LockScreenAccess.issue(this)+"\n\nОкно сигнала покажет «Остановить» и «Повторить через 2 минуты». Телефон останется заблокированным. В настройках Samsung также разрешите уведомления часов на экране блокировки.",16,u.ink));u.gap(c,20);Dialog d=u.dialog("Будильник без разблокировки",c);
+  c.addView(u.button("Разрешить показ",true,()->{d.dismiss();LockScreenAccess.open(this);}));u.gap(c,8);c.addView(u.link("Позже",d::dismiss));d.show();size(d);
+ }
+ void alarmAccessCard(){String issue=LockScreenAccess.issue(this);if(issue==null)return;LinearLayout c=u.panel(body);c.addView(u.title("Показ поверх блокировки",18));u.gap(c,10);c.addView(u.text(issue,15,u.secondary));u.gap(c,14);c.addView(u.button("Разрешить показ",true,()->LockScreenAccess.open(this)));}
 
  void addButton(String label,Runnable r){body.addView(u.button(label,true,r));u.gap(body,16);}
  void timers(){
   body.addView(u.text("БЫСТРЫЙ СТАРТ",11,u.secondary));u.gap(body,12);
   LinearLayout quick=u.row();for(int m:new int[]{1,5,10,15,30}){TextView b=u.button(m+" мин",true,()->{JSONObject t=Store.timer(Store.id(state),m+" минут",m*60000L);Store.addTimer(state,t);scrollTop=true;startTimer(t);});b.setTextSize(13);b.setPadding(u.dp(4),u.dp(12),u.dp(4),u.dp(12));u.equal(quick,b);}body.addView(quick);u.gap(body,24);
-  JSONArray a=state.optJSONArray("timers");for(int i=0;i<a.length();i++){JSONObject t=a.optJSONObject(i);if(i==0)timerCard(t,false);else timerRow(t);}
-  if(a.length()==0){u.gap(body,35);TextView empty=u.text("Нет таймеров",24,u.secondary);empty.setGravity(Gravity.CENTER);body.addView(empty);u.gap(body,16);addButton("Добавить таймер",()->editTimer(null));}
+  timerList=u.col();body.addView(timerList);renderTimers();
+ }
+ void renderTimers(){
+  int y=scrollTop?0:scroll==null?0:scroll.getScrollY();scrollTop=false;refresh.clear();timerList.removeAllViews();
+  JSONArray timers=state.optJSONArray("timers");for(int i=0;i<timers.length();i++){JSONObject t=timers.optJSONObject(i);if(i==0)timerCard(timerList,t,false);else timerRow(t);}
+  if(timers.length()==0){TextView empty=u.text("Нет таймеров",24,u.secondary);empty.setGravity(Gravity.CENTER);timerList.addView(empty);u.gap(timerList,16);timerList.addView(u.button("Добавить таймер",true,()->editTimer(null)));}
+  for(Runnable r:refresh)r.run();if(scroll!=null)scroll.scrollTo(0,y);
  }
  void timerRow(JSONObject t){
-  LinearLayout p=u.panel(body),row=u.row(),info=u.col();TextView name=u.text(t.optString("name"),15,u.secondary),time=u.number("",34);info.addView(name);u.gap(info,6);info.addView(time);row.addView(info,new LinearLayout.LayoutParams(0,-2,1));
+  LinearLayout p=u.panel(timerList),row=u.row(),info=u.col();TextView name=u.text(t.optString("name"),15,u.secondary),time=u.number("",34);info.addView(name);u.gap(info,6);info.addView(time);row.addView(info,new LinearLayout.LayoutParams(0,-2,1));
   refresh.add(()->setTextIfChanged(time,ClockLogic.duration(Store.remaining(t))));
-  boolean ring=t.optBoolean("ringing"),running=t.optBoolean("running");TextView control=u.round(ring?"■":running?"Ⅱ":"▶",ring?Ui.ORANGE:running?Ui.ORANGE:Ui.GREEN,48,()->{if(ring){Store.dismiss(this,state,t.optInt("id"),false);build();}else if(running){Store.pause(t);change();}else startTimer(t);});control.setContentDescription(ring?"Остановить сигнал":running?"Пауза":"Старт");row.addView(control);
+  boolean ring=t.optBoolean("ringing"),running=t.optBoolean("running");TextView control=u.round(ring?"■":running?"Ⅱ":"▶",ring?Ui.ORANGE:running?Ui.ORANGE:Ui.GREEN,48,()->{if(ring){Store.dismiss(this,state,t.optInt("id"),false);redraw();}else if(running){Store.pause(t);change();}else startTimer(t);});control.setContentDescription(ring?"Остановить сигнал":running?"Пауза":"Старт");row.addView(control);
   if(!ring){TextView menu=u.link("•••",()->timerMenu(t));menu.setContentDescription("Действия таймера "+t.optString("name"));row.addView(menu);}p.addView(row);
  }
  static void setTextIfChanged(TextView view,String value){if(!value.contentEquals(view.getText()))view.setText(value);}
 
- void startTimer(JSONObject t){if(!Store.exact(this)){Store.saveUi(this,state);permissionExact();return;}Store.start(t);change();}
- void timerCard(JSONObject t,boolean focus){
-  LinearLayout p=u.panel(body);u.surface(p,u.bg,0);p.setPadding(u.dp(4),0,u.dp(4),u.dp(14));LinearLayout head=u.row();TextView name=u.title(t.optString("name"),21);head.addView(name,new LinearLayout.LayoutParams(0,-2,1));
+ void startTimer(JSONObject t){if(!Store.exact(this)){Store.saveUi(this,state);permissionExact();return;}if(t.optInt("id")!=1&&Store.promoteTimer(state,t.optInt("id")))scrollTop=true;Store.start(t);change();}
+ void timerCard(JSONObject t,boolean focus){timerCard(body,t,focus);}
+ void timerCard(LinearLayout parent,JSONObject t,boolean focus){
+  LinearLayout p=u.panel(parent);u.surface(p,u.bg,0);p.setPadding(u.dp(4),0,u.dp(4),u.dp(14));LinearLayout head=u.row();TextView name=u.title(t.optString("name"),21);head.addView(name,new LinearLayout.LayoutParams(0,-2,1));
   if(!focus&&!t.optBoolean("ringing"))head.addView(u.link("•••",()->timerMenu(t)));p.addView(head);u.gap(p,12);
   Ui.Dial dial=u.new Dial(t);LinearLayout.LayoutParams dp=new LinearLayout.LayoutParams(-1,-2);dp.gravity=Gravity.CENTER;p.addView(dial,dp);u.gap(p,18);
-  if(t.optBoolean("ringing")){p.addView(u.button("Остановить сигнал",true,()->{Store.dismiss(this,state,t.optInt("id"),false);build();}));return;}
+  if(t.optBoolean("ringing")){p.addView(u.button("Остановить сигнал",true,()->{Store.dismiss(this,state,t.optInt("id"),false);redraw();}));return;}
   LinearLayout actions=u.row();actions.setGravity(Gravity.CENTER);TextView reset=u.round("Сбросить",u.secondary,78,()->{Store.reset(t);change();});actions.addView(reset);
   View spacer=new View(this);actions.addView(spacer,new LinearLayout.LayoutParams(0,1,1));
   actions.addView(u.round(t.optBoolean("running")?"Пауза":"Старт",t.optBoolean("running")?Ui.ORANGE:Ui.GREEN,78,()->{if(t.optBoolean("running")){Store.pause(t);change();}else startTimer(t);}));p.addView(actions);
@@ -94,6 +114,7 @@ public class MainActivity extends Activity {
  }
 
  void alarms(){
+  alarmAccessCard();
   JSONArray a=state.optJSONArray("alarms");if(a.length()==0){u.gap(body,42);TextView empty=u.text("Нет будильников",24,u.secondary);empty.setGravity(Gravity.CENTER);body.addView(empty);u.gap(body,20);addButton("Добавить будильник",()->editAlarm(null));}
   for(int i=0;i<a.length();i++){
    JSONObject alarm=a.optJSONObject(i);LinearLayout p=u.col();p.setPadding(0,u.dp(10),0,u.dp(8));LinearLayout row=u.row(),info=u.col();
@@ -145,9 +166,9 @@ public class MainActivity extends Activity {
   volume.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onStartTrackingTouch(SeekBar bar){}public void onProgressChanged(SeekBar bar,int value,boolean user){if(user){Store.put(state,"volume",value);volumeDirty=true;volumeLabel.setText("Громкость · "+value+"%");if(!bar.isPressed())flushVolume();}}public void onStopTrackingTouch(SeekBar bar){flushVolume();}});
   LinearLayout timer=u.panel(body);timer.addView(u.title("Шаг таймера",18));u.gap(timer,10);timer.addView(u.text("Изменение времени кнопками, в секундах",13,u.secondary));u.gap(timer,12);EditText step=u.input(""+state.optInt("step",10),"Шаг в секундах",true);timer.addView(step);u.gap(timer,12);LinearLayout arrows=u.row();for(int sign:new int[]{-1,1})u.equal(arrows,u.button(sign<0?"− 1 сек":"+ 1 сек",false,()->step.setText(""+Math.max(1,Math.min(3600,Math.max(1,number(step))+sign)))));timer.addView(arrows);u.gap(timer,12);TextView error=u.text("",13,u.actionColor(Ui.ORANGE));timer.addView(error);timer.addView(u.button("Сохранить шаг",true,()->{int st=number(step);if(st<1||st>3600){error.setText("Допустимо от 1 до 3600 секунд");return;}Store.put(state,"step",st);Store.saveUi(this,state);error.setText("Сохранено");}));
   LinearLayout access=u.panel(body);access.addView(u.title("Работа на Samsung",19));u.gap(access,12);NotificationManager nm=getSystemService(NotificationManager.class);access.addView(u.text("Уведомления: "+(nm.areNotificationsEnabled()?"разрешены":"отключены")+"\nТочные сигналы: "+(Store.exact(this)?"разрешены":"требуется доступ"),14,u.secondary));u.gap(access,12);access.addView(u.button("Настройки уведомлений",false,()->startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,getPackageName()))));if(!Store.exact(this)){u.gap(access,10);access.addView(u.button("Разрешить точные сигналы",false,this::permissionExact));}
-  if(Build.VERSION.SDK_INT>=34&&!nm.canUseFullScreenIntent()){u.gap(access,10);access.addView(u.button("Сигнал на экране блокировки",false,()->startActivity(new Intent("android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT",android.net.Uri.parse("package:"+getPackageName())))));}
+  u.gap(access,10);access.addView(u.button("Управление на экране блокировки",false,()->LockScreenAccess.open(this)));
   u.gap(access,12);access.addView(u.text("Разрешите уведомления и полноэкранные сигналы. Если Samsung ограничивает часы, добавьте Apple Clock в список «Никогда не спящие приложения». Громкость будильника телефона и режим «Не беспокоить» влияют на слышимость.\n\nТаймеры работают после сворачивания и удаления из списка недавних. После принудительной остановки в настройках Android нужно снова открыть часы. Для обновления устанавливайте APK поверх прежней версии.",13,u.secondary));
-  LinearLayout about=u.panel(body);about.addView(u.title("Apple Clock 1.1.2",18));u.gap(about,10);about.addView(u.text("Android 8.0 и новее · работает без интернета\nДизайн по мотивам Apple Clock для Windows.\nМелодия Koshi — Membeth, CC0.\nНезависимый проект, не приложение Apple.",13,u.secondary));
+  LinearLayout about=u.panel(body);about.addView(u.title("Apple Clock 1.1.3",18));u.gap(about,10);about.addView(u.text("Android 8.0 и новее · работает без интернета\nДизайн по мотивам Apple Clock для Windows.\nМелодия Koshi — Membeth, CC0.\nНезависимый проект, не приложение Apple.",13,u.secondary));
  }
  void permissionExact(){if(Build.VERSION.SDK_INT>=31)startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,android.net.Uri.parse("package:"+getPackageName())));}
 }

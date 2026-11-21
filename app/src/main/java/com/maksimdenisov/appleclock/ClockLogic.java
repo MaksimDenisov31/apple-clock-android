@@ -3,6 +3,7 @@ package com.maksimdenisov.appleclock;
 import java.util.*;
 
 public final class ClockLogic {
+ public static final long SNOOZE_MILLIS=120000;
  public static long nextAlarm(int hour,int minute,int days,long now,TimeZone zone) {
   Calendar c=Calendar.getInstance(zone); c.setTimeInMillis(now);
   for(int i=0;i<9;i++) {

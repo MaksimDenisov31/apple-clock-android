@@ -24,6 +24,13 @@ final class Store {
   for(int i=0;i<previous.length();i++)ordered.put(previous.optJSONObject(i));
   put(s,"timers",ordered);
  }
+ static boolean promoteTimer(JSONObject s,int id){
+  JSONArray timers=s.optJSONArray("timers");if(timers.length()==0||timers.optJSONObject(0).optInt("id")==id)return false;
+  JSONObject selected=null;for(int i=0;i<timers.length();i++)if(timers.optJSONObject(i).optInt("id")==id)selected=timers.optJSONObject(i);
+  if(selected==null)return false;JSONArray ordered=new JSONArray().put(selected);
+  for(int i=0;i<timers.length();i++)if(timers.optJSONObject(i).optInt("id")!=id)ordered.put(timers.optJSONObject(i));
+  put(s,"timers",ordered);return true;
+ }
  static List<JSONObject> items(JSONObject s) {
   List<JSONObject> out=new ArrayList<>(); out.add(s.optJSONObject("focus"));
   for(String k:new String[]{"timers","alarms"}) {JSONArray a=s.optJSONArray(k);for(int i=0;i<a.length();i++)out.add(a.optJSONObject(i));} return out;
@@ -70,13 +77,15 @@ final class Store {
  static void changed(Context c,JSONObject s) {save(c,s);schedule(c,s);}
  static void dismiss(Context c,JSONObject s,int id,boolean snooze) {
   JSONObject o=find(s,id);if(o==null)return;put(o,"ringing",false);
-  if(o.optBoolean("alarm")) {if(snooze){put(o,"enabled",true);put(o,"end",System.currentTimeMillis()+300000);}}
+  if(o.optBoolean("alarm")) {if(snooze){put(o,"enabled",true);put(o,"end",System.currentTimeMillis()+ClockLogic.SNOOZE_MILLIS);}}
   else if(id==1) {
    boolean rest=s.optBoolean("onBreak");String day=new java.text.SimpleDateFormat("yyyy-MM-dd",Locale.ROOT).format(new Date());
    if(!day.equals(s.optString("focusDay"))){put(s,"focusDay",day);put(s,"completed",0);}
    if(!rest)put(s,"completed",s.optInt("completed")+1);put(s,"onBreak",!rest);
    put(o,"duration",s.optInt(rest?"work":"rest",rest?25:5)*60000L);reset(o);
   } else reset(o);
-  changed(c,s);c.startService(new Intent(c,RingService.class).setAction("refresh"));
+  changed(c,s);
+  if(ringing(s))c.startForegroundService(new Intent(c,RingService.class).setAction("refresh"));
+  else c.stopService(new Intent(c,RingService.class));
  }
 }
