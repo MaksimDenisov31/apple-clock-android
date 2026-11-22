@@ -34,9 +34,9 @@ class Ui {
  LinearLayout panel(LinearLayout parent){LinearLayout p=col();p.setPadding(dp(20),dp(20),dp(20),dp(20));surface(p,card,24);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(14);parent.addView(p,lp);return p;}
  void equal(LinearLayout row,View v){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-2,1);p.setMargins(dp(3),0,dp(3),0);row.addView(v,p);}
  EditText input(String value,String hint,boolean number){EditText e=new EditText(a);e.setSingleLine(true);e.setText(value);e.setHint(hint);e.setContentDescription(hint);e.setTextSize(16);e.setTextColor(ink);e.setHintTextColor(secondary);e.setPadding(dp(14),dp(12),dp(14),dp(12));surface(e,soft,12);if(number)e.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);return e;}
- ScrollView scroll(View content){ScrollView sc=new ScrollView(a);sc.setFillViewport(false);sc.setVerticalScrollBarEnabled(false);sc.addView(content);return sc;}
- Dialog dialog(String title,LinearLayout content){Dialog d=new Dialog(a);LinearLayout root=col();root.setPadding(dp(20),dp(12),dp(20),dp(20));surface(root,card,30);View handle=new View(a);surface(handle,secondary,3);LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(dp(36),dp(4));hp.gravity=Gravity.CENTER;hp.bottomMargin=dp(20);root.addView(handle,hp);TextView heading=title(title,22);heading.setGravity(Gravity.CENTER);root.addView(heading);gap(root,18);root.addView(scroll(content));d.setContentView(root);android.view.Window w=d.getWindow();w.setBackgroundDrawableResource(android.R.color.transparent);w.setGravity(Gravity.BOTTOM);w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);w.setDimAmount(.45f);w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);return d;}
- void systemBars(View root){a.getWindow().setStatusBarColor(bg);a.getWindow().setNavigationBarColor(bg);root.setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);root.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});root.requestApplyInsets();}
+ ScrollView scroll(View content){ScrollView sc=new ScrollView(a);sc.setFillViewport(false);sc.setVerticalScrollBarEnabled(false);sc.addView(content);sc.setOnScrollChangeListener((v,x,y,oldX,oldY)->SmoothWindow.motion(sc));return sc;}
+ Dialog dialog(String title,LinearLayout content){Dialog d=new Dialog(a){@Override public boolean dispatchTouchEvent(MotionEvent event){SmoothWindow.touch(getWindow(),event);return super.dispatchTouchEvent(event);}};LinearLayout root=col();root.setPadding(dp(20),dp(12),dp(20),dp(20));surface(root,card,30);View handle=new View(a);surface(handle,secondary,3);LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(dp(36),dp(4));hp.gravity=Gravity.CENTER;hp.bottomMargin=dp(20);root.addView(handle,hp);TextView heading=title(title,22);heading.setGravity(Gravity.CENTER);root.addView(heading);gap(root,18);root.addView(scroll(content));d.setContentView(root);android.view.Window w=d.getWindow();w.setBackgroundDrawableResource(android.R.color.transparent);SmoothWindow.install(w);w.setGravity(Gravity.BOTTOM);w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);w.setDimAmount(.45f);w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);return d;}
+ void systemBars(View root){SmoothWindow.install(a.getWindow());a.getWindow().setStatusBarColor(bg);a.getWindow().setNavigationBarColor(bg);root.setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);root.setOnApplyWindowInsetsListener((v,insets)->{v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());return insets;});root.requestApplyInsets();}
  class Icon extends View {
   final int kind,color;final Paint p=new Paint(3);
   Icon(int kind,int color){super(a);this.kind=kind;this.color=color;setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);}
@@ -51,7 +51,7 @@ class Ui {
    if(kind==6){p.setStyle(Paint.Style.FILL);for(int j=0;j<3;j++)c.drawCircle(5+j*7,12,1.7f,p);}
    c.restore();}
  }
- class Dial extends View {
+ class Dial extends AnimatedClockView {
   final JSONObject timer;final Paint p=new Paint(3);final RectF rect=new RectF();
   long textSecond=-1,anchorEnd=Long.MIN_VALUE,anchorRemaining,anchorElapsed;String label="";
   Dial(JSONObject timer){super(a);this.timer=timer;setContentDescription("Осталось "+ClockLogic.duration(Store.remaining(timer)));setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);}
@@ -63,7 +63,7 @@ class Ui {
    long second=(remaining+999)/1000;if(second!=textSecond){textSecond=second;label=ClockLogic.duration(remaining);setContentDescription("Осталось "+label);}
    p.setStyle(Paint.Style.FILL);p.setTypeface(LIGHT);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(dp(39));p.setColor(ink);canvas.drawText(label,cx,cy+dp(5),p);
    p.setTypeface(REGULAR);p.setTextSize(dp(13));p.setColor(secondary);canvas.drawText(timer.optBoolean("ringing")?"Время вышло":timer.optBoolean("running")?"До завершения":"Таймер",cx,cy+dp(34),p);
-   if(timer.optBoolean("running")&&getWindowVisibility()==VISIBLE)postInvalidateOnAnimation();
+   nextFrame(timer.optBoolean("running")&&remaining>0);
   }
  }
 }

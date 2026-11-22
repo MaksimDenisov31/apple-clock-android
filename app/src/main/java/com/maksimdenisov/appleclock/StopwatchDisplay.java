@@ -6,7 +6,7 @@ import java.util.function.LongSupplier;
 import java.util.function.BooleanSupplier;
 
 /** Frame-synchronised digits without repeated TextView layout or autosizing. */
-final class StopwatchDisplay extends View {
+final class StopwatchDisplay extends AnimatedClockView {
  private final Ui u;private final LongSupplier elapsed;private final BooleanSupplier running;
  private final Paint paint=new Paint(3);private long hundredth=-1,spokenSecond=-1;
  private String digits="00:00:00.00";private int fittedLength;private float size,baseline;
@@ -27,7 +27,6 @@ final class StopwatchDisplay extends View {
   if(value!=hundredth){hundredth=value;digits=ClockLogic.stopwatch(ms);if(digits.length()!=fittedLength)fit(getWidth(),getHeight());}
   if(ms/1000!=spokenSecond){spokenSecond=ms/1000;setContentDescription("Секундомер "+ClockLogic.duration(ms/1000*1000));}
   c.drawText(digits,getWidth()/2f,baseline,paint);
-  if(running.getAsBoolean()&&getWindowVisibility()==VISIBLE)postInvalidateOnAnimation();
+  nextFrame(running.getAsBoolean());
  }
- @Override protected void onWindowVisibilityChanged(int visibility){super.onWindowVisibilityChanged(visibility);if(visibility==VISIBLE)invalidate();}
 }

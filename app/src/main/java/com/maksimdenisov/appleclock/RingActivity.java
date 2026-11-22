@@ -8,6 +8,7 @@ import org.json.*;
 
 public class RingActivity extends Activity {
  SharedPreferences preferences;
+ @Override public boolean dispatchTouchEvent(MotionEvent event){SmoothWindow.touch(getWindow(),event);return super.dispatchTouchEvent(event);}
  final SharedPreferences.OnSharedPreferenceChangeListener changed=(prefs,key)->{if("state".equals(key))show(Store.load(RingActivity.this));};
  @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON|WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED|WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);if(Build.VERSION.SDK_INT>=27){setShowWhenLocked(true);setTurnScreenOn(true);}show(Store.load(this));}
  @Override protected void onNewIntent(android.content.Intent intent){super.onNewIntent(intent);setIntent(intent);show(Store.load(this));}
