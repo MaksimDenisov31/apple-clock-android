@@ -13,7 +13,7 @@ import java.text.*;
 import java.util.*;
 
 public class MainActivity extends Activity {
- JSONObject state;Ui u;LinearLayout root,body,timerList;ScrollView scroll;int page,scrollPage;boolean visible,editing,scrollTop,draftDirty,volumeDirty;Handler handler=new Handler();ArrayList<Runnable> refresh=new ArrayList<>();
+ JSONObject state;Ui u;LinearLayout root,body,timerList;ScrollView scroll;int page,scrollPage;boolean visible,scrollTop,draftDirty,volumeDirty;Handler handler=new Handler();ArrayList<Runnable> refresh=new ArrayList<>();
  static final String[] TITLES={"Таймеры","Будильники","Секундомер","Мировые часы","Фокусировка","Настройки"};
  static final String[] SUB={"Маленькие паузы. Большие планы.","Начните день в своём ритме.","Каждое мгновение имеет значение.","Один момент. Разные города.","Одно дело. Всё внимание.","Ваши часы — ваши привычки."};
  static final String[] CITIES={"Москва","Лондон","Нью-Йорк","Токио","Париж","Дубай","Лос-Анджелес","Сидней","Пекин","Берлин","Екатеринбург","Новосибирск","Владивосток","Калининград","Стамбул","Дели"};
@@ -37,8 +37,7 @@ public class MainActivity extends Activity {
   int previousY=scroll!=null&&scrollPage==page&&!scrollTop?scroll.getScrollY():0;scrollTop=false;
   u=new Ui(this,state.optBoolean("dark"));refresh.clear();root=u.col();root.setBackgroundColor(u.bg);
   LinearLayout top=u.row();top.setPadding(u.dp(14),u.dp(6),u.dp(14),0);
-  if(page==1||page==3)top.addView(u.link(editing?"Готово":"Править",()->{editing=!editing;build();}),new LinearLayout.LayoutParams(0,-2,1));
-  else {TextView brand=u.text("Часы",17,u.secondary);brand.setPadding(u.dp(6),0,0,0);top.addView(brand,new LinearLayout.LayoutParams(0,-2,1));}
+  TextView brand=u.text("Apple Clock",17,u.secondary);brand.setPadding(u.dp(6),0,0,0);top.addView(brand,new LinearLayout.LayoutParams(0,-2,1));
   TextView theme=u.round("◐",u.ink,44,()->{Store.put(state,"dark",!state.optBoolean("dark"));Store.saveUi(this,state);build();});theme.setContentDescription("Переключить светлую и тёмную тему");top.addView(theme);
   if(page==0||page==1||page==3){TextView add=u.round("+",Ui.ORANGE,44,()->{if(page==0)editTimer(null);else if(page==1)editAlarm(null);else addCity();});add.setTextSize(32);add.setContentDescription("Добавить");top.addView(add);}root.addView(top);
   body=u.col();body.setPadding(u.dp(20),u.dp(10),u.dp(20),u.dp(20));TextView title=u.title(TITLES[page],34);body.addView(title);u.gap(body,24);
@@ -56,7 +55,7 @@ public class MainActivity extends Activity {
   LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(-1,-2);np.setMargins(u.dp(12),u.dp(5),u.dp(12),u.dp(8));root.addView(nav,np);
   setContentView(root);u.systemBars(root);for(Runnable r:refresh)r.run();ScrollView current=scroll;current.post(()->current.scrollTo(0,previousY));
  }
- void navigate(int target){page=target;editing=false;Store.put(state,"page",page);Store.saveUi(this,state);build();}
+ void navigate(int target){page=target;Store.put(state,"page",page);Store.saveUi(this,state);build();}
  void more(){LinearLayout c=u.col();Dialog d=u.dialog("Ещё",c);c.addView(u.button("Фокусировка",false,()->{d.dismiss();navigate(4);}));u.gap(c,10);c.addView(u.button("Настройки",false,()->{d.dismiss();navigate(5);}));u.gap(c,10);c.addView(u.link("Отмена",d::dismiss));d.show();size(d);}
  void offerLockScreenSetup(){
   if(!visible||isFinishing()||LockScreenAccess.issue(this)==null||!getSystemService(NotificationManager.class).areNotificationsEnabled())return;
@@ -120,7 +119,7 @@ public class MainActivity extends Activity {
    JSONObject alarm=a.optJSONObject(i);LinearLayout p=u.col();p.setPadding(0,u.dp(10),0,u.dp(8));LinearLayout row=u.row(),info=u.col();
    TextView time=u.number(ClockLogic.two(alarm.optInt("hour"))+":"+ClockLogic.two(alarm.optInt("minute")),60);time.setTextColor(alarm.optBoolean("enabled")?u.ink:u.secondary);info.addView(time);u.gap(info,6);info.addView(u.text(alarm.optString("name")+", "+days(alarm.optInt("days")),15,u.secondary));info.setOnClickListener(v->{if(!alarm.optBoolean("ringing"))editAlarm(alarm);});row.addView(info,new LinearLayout.LayoutParams(0,-2,1));
    AlarmToggle toggle=new AlarmToggle(u,alarm.optBoolean("enabled"),()->{if(!alarm.optBoolean("enabled")&&!Store.exact(this)){permissionExact();return;}Store.put(alarm,"enabled",!alarm.optBoolean("enabled"));if(alarm.optBoolean("enabled"))Store.next(alarm);change();});row.addView(toggle);p.addView(row);
-   if(editing){u.gap(p,12);LinearLayout controls=u.row();u.equal(controls,u.link("Изменить",()->editAlarm(alarm)));u.equal(controls,u.link("Удалить",()->confirm("Удалить будильник?",()->{cancel(alarm);remove("alarms",alarm);change();})));p.addView(controls);}
+   info.setOnLongClickListener(v->{confirm("Удалить будильник?",()->{cancel(alarm);remove("alarms",alarm);change();});return true;});
    if(alarm.optBoolean("ringing")){u.gap(p,12);p.addView(u.button("Остановить сигнал",true,()->{Store.dismiss(this,state,alarm.optInt("id"),false);build();}));}body.addView(p);u.divider(body);
   }
  }
@@ -150,7 +149,7 @@ public class MainActivity extends Activity {
   for(int i=0;i<cities.length();i++){
    final int index=i,city=cities.optInt(i);LinearLayout row=u.row(),info=u.col();TextView name=u.title(CITIES[city],25),date=u.text("",13,u.secondary);info.addView(date);u.gap(info,7);info.addView(name);row.addView(info,new LinearLayout.LayoutParams(0,-2,1));TextView time=u.number("",43);row.addView(time);row.setPadding(0,u.dp(12),0,u.dp(12));body.addView(row);
    SimpleDateFormat f=new SimpleDateFormat("HH:mm:ss",Locale.ROOT),d=new SimpleDateFormat("EEE, d MMM · z",new Locale("ru"));f.setTimeZone(TimeZone.getTimeZone(ZONES[city]));d.setTimeZone(f.getTimeZone());Date now=new Date();refresh.add(()->{now.setTime(System.currentTimeMillis());setTextIfChanged(time,f.format(now));setTextIfChanged(date,d.format(now));});
-   if(editing)body.addView(u.link("Удалить "+CITIES[city],()->{cities.remove(index);Store.saveUi(this,state);build();}));u.divider(body);
+   row.setOnLongClickListener(v->{confirm("Удалить "+CITIES[city]+"?",()->{cities.remove(index);Store.saveUi(this,state);build();});return true;});u.divider(body);
   }
  }
 
@@ -168,7 +167,7 @@ public class MainActivity extends Activity {
   LinearLayout access=u.panel(body);access.addView(u.title("Работа на Samsung",19));u.gap(access,12);NotificationManager nm=getSystemService(NotificationManager.class);access.addView(u.text("Уведомления: "+(nm.areNotificationsEnabled()?"разрешены":"отключены")+"\nТочные сигналы: "+(Store.exact(this)?"разрешены":"требуется доступ"),14,u.secondary));u.gap(access,12);access.addView(u.button("Настройки уведомлений",false,()->startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE,getPackageName()))));if(!Store.exact(this)){u.gap(access,10);access.addView(u.button("Разрешить точные сигналы",false,this::permissionExact));}
   u.gap(access,10);access.addView(u.button("Управление на экране блокировки",false,()->LockScreenAccess.open(this)));
   u.gap(access,12);access.addView(u.text("Разрешите уведомления и полноэкранные сигналы. Если Samsung ограничивает часы, добавьте Apple Clock в список «Никогда не спящие приложения». Громкость будильника телефона и режим «Не беспокоить» влияют на слышимость.\n\nТаймеры работают после сворачивания и удаления из списка недавних. После принудительной остановки в настройках Android нужно снова открыть часы. Для обновления устанавливайте APK поверх прежней версии.",13,u.secondary));
-  LinearLayout about=u.panel(body);about.addView(u.title("Apple Clock 1.1.3",18));u.gap(about,10);about.addView(u.text("Android 8.0 и новее · работает без интернета\nДизайн по мотивам Apple Clock для Windows.\nМелодия Koshi — Membeth, CC0.\nНезависимый проект, не приложение Apple.",13,u.secondary));
+  LinearLayout about=u.panel(body);about.addView(u.title("Apple Clock 1.1.4",18));u.gap(about,10);about.addView(u.text("Android 8.0 и новее · работает без интернета\nДизайн по мотивам Apple Clock для Windows.\nМелодия Koshi — Membeth, CC0.\nНезависимый проект, не приложение Apple.",13,u.secondary));
  }
  void permissionExact(){if(Build.VERSION.SDK_INT>=31)startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,android.net.Uri.parse("package:"+getPackageName())));}
 }
